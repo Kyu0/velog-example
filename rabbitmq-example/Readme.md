@@ -2,6 +2,7 @@
 (RabbitMQ가 설치되어있다고 가정합니다.)
 
 1. RabbitMQ 서버를 실행합니다.
+ (Intell 맥북 기준 터미널에서 /usr/local/sbin/rabbitmq-server 실행)
 2. MQ-CON 프로젝트를 실행합니다.
 3. MQ-PUB 프로젝트를 실행합니다.
 
