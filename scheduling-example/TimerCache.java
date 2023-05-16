@@ -1,11 +1,13 @@
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 /**
  * 데이터를 캐싱한 후 일정 시간이 지나면 삭제하는 캐시. {@code expirationTime}을 지정하지 않고 생성하면 기본값으로 1000ms로 지정된다.
  */
 public class TimerCache<K, V> implements Cache<K, V> {
-    private final Map<K, V> data;
+    private final Map<K, DataObject> data;
     private final Timer cleanupTimer;
     private long expirationTime;
 
@@ -55,9 +57,9 @@ public class TimerCache<K, V> implements Cache<K, V> {
         cleanupTimer.schedule(new TimerTask() {
             @Override
             public void run() {
-                V d = data.get(key);
+                final DataObject d = data.get(key);
 
-                if (d != null) {
+                if (d != null && d.isRemovable()) {
                     delete(key);
                 }
             }
@@ -71,21 +73,64 @@ public class TimerCache<K, V> implements Cache<K, V> {
 
     @Override
     public void set(final K key, final V value) {
-        this.data.put(key, value);
-        scheduleCleanupTask(key, System.currentTimeMillis() + expirationTime);
+        final long insertedTime = System.currentTimeMillis();
+        this.data.put(key, new DataObject(value, insertedTime));
+        scheduleCleanupTask(key, insertedTime + expirationTime);
+
         System.out.println("set : " + value);
-        System.out.println(LocalDateTime.now());
+        System.out.println(millisToLocalDateTime(insertedTime));
     }
 
     @Override
     public V get(final K key) {
-        return this.data.get(key);
+        return this.data.get(key).getValue();
     }
 
     @Override
     public V delete(final K key) {
         System.out.println("removed : " + this.data.get(key));
         System.out.println(LocalDateTime.now());
-        return this.data.remove(key);
+
+        return this.data.remove(key).getValue();
+    }
+
+    /**
+     * {@link TimerCache} 클래스에 동일한 키 값이 여러 번 입력되었을 때 올바른 시간에 삭제되기 위해 사용하는 Wrapper Class
+     */
+    private class DataObject {
+        private final V value;
+        private final long insertedTime;
+
+        public DataObject(V value, long insertedTime) {
+            this.value = value;
+            this.insertedTime = insertedTime;
+        }
+
+        public V getValue() {
+            return this.value;
+        }
+
+        public long getInsertedTime() {
+            return this.insertedTime;
+        }
+
+        /**
+         * 이 메소드를 호출한 시점의 시스템 시간을 확인하여 {@code insertedTime}으로부터 @{code expirationTime} 만큼의 시간이 지났는지(삭제할 수 있는지) 확인하는 메소드.
+         * @return 삭제 대상인 데이터이면 true, 아니면 false
+         */
+        public boolean isRemovable() {
+            long currentTime = System.currentTimeMillis();
+
+            return currentTime - this.insertedTime >= expirationTime;
+        }
+
+        @Override
+        public String toString() {
+            return "[Inserted Time : " + millisToLocalDateTime(this.insertedTime) + ", Value : " + value.toString() + "]";
+        }
+    }
+
+    private LocalDateTime millisToLocalDateTime(long millis) {
+        return Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDateTime();
     }
 }
