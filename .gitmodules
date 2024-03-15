@@ -1,0 +1,3 @@
+[submodule "nodejs-s3-example"]
+	path = nodejs-s3-example
+	url = https://github.com/Kyu0/nodejs-s3-example.git
